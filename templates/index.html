@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>GrammarAI — Smart Writing Assistant</title>
+
+  <!-- Google Fonts: Syne (display) + DM Sans (body) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+
+  <style>
+    /* ============================================================
+       CSS VARIABLES — the entire color palette lives here.
+       Change these to retheme the whole app instantly.
+    ============================================================ */
+    :root {
+      --bg:         #0a0b0f;         /* deepest background */
+      --surface:    #12141a;         /* card / panel background */
+      --surface2:   #1a1d27;         /* slightly lighter surface */
+      --border:     #252836;         /* subtle borders */
+      --accent:     #7c5cfc;         /* primary purple */
+      --accent2:    #fc5c7d;         /* pink accent */
+      --accent3:    #43e0ad;         /* teal/green accent */
+      --accent4:    #f7c948;         /* yellow accent */
+      --text:       #e8e9f0;         /* main text */
+      --text-muted: #6b6e82;         /* secondary text */
+      --error:      #ff5c5c;
+      --success:    #43e0ad;
+      --radius:     16px;
+      --radius-sm:  8px;
+    }
+
+    /* ============================================================
+       RESET & BASE
+    ============================================================ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ============================================================
+       ANIMATED BACKGROUND GRID
+    ============================================================ */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(var(--border) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border) 1px, transparent 1px);
+      background-size: 60px 60px;
+      opacity: 0.35;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ============================================================
+       GLOWING ORBS (decorative background blobs)
+    ============================================================ */
+    .orb {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(120px);
+      opacity: 0.12;
+      pointer-events: none;
+      z-index: 0;
+      animation: orbFloat 12s ease-in-out infinite;
+    }
+    .orb-1 { width: 500px; height: 500px; background: var(--accent);  top: -200px; left: -150px; animation-delay: 0s; }
+    .orb-2 { width: 400px; height: 400px; background: var(--accent2); bottom: -100px; right: -100px; animation-delay: -4s; }
+    .orb-3 { width: 300px; height: 300px; background: var(--accent3); top: 50%; left: 50%; animation-delay: -8s; }
+
+    @keyframes orbFloat {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      33%       { transform: translate(30px, -30px) scale(1.05); }
+      66%       { transform: translate(-20px, 20px) scale(0.95); }
+    }
+
+    /* ============================================================
+       LAYOUT WRAPPER
+    ============================================================ */
+    .wrapper {
+      position: relative;
+      z-index: 1;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 24px 80px;
+    }
+
+    /* ============================================================
+       HEADER / HERO
+    ============================================================ */
+    header {
+      text-align: center;
+      padding: 64px 0 48px;
+      animation: fadeDown 0.8s ease both;
+    }
+
+    .logo-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 6px 18px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--accent3);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+    }
+    .logo-badge::before {
+      content: '';
+      width: 8px; height: 8px;
+      background: var(--accent3);
+      border-radius: 50%;
+      animation: blink 2s ease infinite;
+    }
+    @keyframes blink { 0%,100% { opacity:1; } 50% { opacity: 0.2; } }
+
+    h1 {
+      font-family: 'Syne', sans-serif;
+      font-size: clamp(2.8rem, 6vw, 5rem);
+      font-weight: 800;
+      line-height: 1.05;
+      letter-spacing: -2px;
+    }
+    h1 .grad {
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 50%, var(--accent4) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .subtitle {
+      margin-top: 14px;
+      color: var(--text-muted);
+      font-size: 1.1rem;
+      font-weight: 300;
+    }
+
+    /* ============================================================
+       MAIN CARD (the two-column editor area)
+    ============================================================ */
+    .main-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: 0 0 80px rgba(124, 92, 252, 0.08);
+      animation: fadeUp 0.9s 0.2s ease both;
+    }
+
+    /* Top bar of the card */
+    .card-topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface2);
+    }
+    .card-topbar .dots {
+      display: flex; gap: 8px;
+    }
+    .card-topbar .dot {
+      width: 12px; height: 12px;
+      border-radius: 50%;
+    }
+    .dot-r { background: #ff5f56; }
+    .dot-y { background: #ffbd2e; }
+    .dot-g { background: #27c93f; }
+    .card-topbar .title-small {
+      font-family: 'Syne', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    .word-count-badge {
+      font-size: 12px;
+      color: var(--text-muted);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 4px 12px;
+    }
+
+    /* Two column editor layout */
+    .editor-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      min-height: 320px;
+    }
+    @media (max-width: 700px) {
+      .editor-grid { grid-template-columns: 1fr; }
+    }
+
+    .editor-pane {
+      display: flex;
+      flex-direction: column;
+    }
+    .editor-pane:first-child {
+      border-right: 1px solid var(--border);
+    }
+
+    .pane-label {
+      padding: 12px 20px;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .pane-label .dot-label {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+    }
+
+    textarea#inputText {
+      flex: 1;
+      width: 100%;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 15px;
+      line-height: 1.7;
+      padding: 20px;
+      resize: none;
+      min-height: 280px;
+    }
+    textarea#inputText::placeholder { color: var(--text-muted); opacity: 0.5; }
+
+    /* Corrected output pane */
+    #outputPane {
+      flex: 1;
+      padding: 20px;
+      font-size: 15px;
+      line-height: 1.7;
+      color: var(--text-muted);
+      font-style: italic;
+      min-height: 280px;
+      overflow-y: auto;
+    }
+    #outputPane.has-content {
+      color: var(--text);
+      font-style: normal;
+    }
+    .corrected-highlight {
+      background: rgba(67, 224, 173, 0.15);
+      color: var(--accent3);
+      border-radius: 3px;
+      padding: 0 2px;
+      text-decoration: underline;
+      text-decoration-color: var(--accent3);
+      text-decoration-style: dashed;
+    }
+
+    /* ============================================================
+       ACTION ROW (buttons)
+    ============================================================ */
+    .action-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 20px;
+      border-top: 1px solid var(--border);
+      background: var(--surface2);
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 22px;
+      border-radius: var(--radius-sm);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: white;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+    .btn:hover::after { opacity: 0.06; }
+    .btn:active { transform: scale(0.97); }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff;
+      box-shadow: 0 4px 24px rgba(124, 92, 252, 0.35);
+    }
+    .btn-primary:hover {
+      box-shadow: 0 4px 32px rgba(124, 92, 252, 0.55);
+    }
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover { color: var(--text); border-color: #444; }
+
+    .btn-copy {
+      background: rgba(67, 224, 173, 0.1);
+      color: var(--accent3);
+      border: 1px solid rgba(67, 224, 173, 0.25);
+    }
+
+    /* Loading spinner inside button */
+    .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: none;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ============================================================
+       STATS ROW
+    ============================================================ */
+    .stats-section {
+      margin-top: 28px;
+      animation: fadeUp 0.8s 0.4s ease both;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 16px;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+    .stat-card:hover { transform: translateY(-3px); border-color: #333; }
+
+    .stat-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+    .stat-value {
+      font-family: 'Syne', sans-serif;
+      font-size: 2rem;
+      font-weight: 800;
+      line-height: 1;
+    }
+    .stat-value.purple { color: var(--accent); }
+    .stat-value.pink   { color: var(--accent2); }
+    .stat-value.teal   { color: var(--accent3); }
+    .stat-value.yellow { color: var(--accent4); }
+
+    /* Score ring */
+    .score-card {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .score-ring {
+      position: relative;
+      width: 64px; height: 64px;
+      flex-shrink: 0;
+    }
+    .score-ring svg { transform: rotate(-90deg); }
+    .score-ring .ring-bg { stroke: var(--border); }
+    .score-ring .ring-fill {
+      stroke: var(--accent3);
+      stroke-dasharray: 163;
+      stroke-dashoffset: 163;
+      stroke-linecap: round;
+      transition: stroke-dashoffset 1s ease;
+    }
+    .score-number {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Syne', sans-serif;
+      font-size: 15px;
+      font-weight: 800;
+      color: var(--text);
+    }
+
+    /* ============================================================
+       ISSUES LIST
+    ============================================================ */
+    .issues-section {
+      margin-top: 28px;
+      animation: fadeUp 0.8s 0.5s ease both;
+    }
+
+    .section-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .section-title .count-badge {
+      background: var(--accent);
+      color: #fff;
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 500;
+    }
+
+    .issue-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 16px 18px;
+      margin-bottom: 10px;
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      transition: border-color 0.2s, transform 0.2s;
+      animation: fadeUp 0.4s ease both;
+    }
+    .issue-item:hover { border-color: #333; transform: translateX(4px); }
+
+    .issue-icon {
+      width: 34px; height: 34px;
+      border-radius: var(--radius-sm);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+    .icon-grammar  { background: rgba(124, 92, 252, 0.15); }
+    .icon-spelling { background: rgba(252, 92, 125, 0.15); }
+    .icon-style    { background: rgba(247, 201, 72, 0.15); }
+
+    .issue-body { flex: 1; }
+    .issue-message {
+      font-size: 14px;
+      font-weight: 500;
+      margin-bottom: 6px;
+      color: var(--text);
+    }
+    .issue-context {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-family: monospace;
+      background: var(--surface2);
+      padding: 4px 10px;
+      border-radius: 4px;
+      margin-bottom: 8px;
+      border-left: 3px solid var(--border);
+    }
+    .suggestions-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .suggestion-pill {
+      background: rgba(67, 224, 173, 0.1);
+      color: var(--accent3);
+      border: 1px solid rgba(67, 224, 173, 0.25);
+      border-radius: 999px;
+      padding: 3px 12px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .suggestion-pill:hover {
+      background: rgba(67, 224, 173, 0.2);
+      transform: translateY(-1px);
+    }
+    .issue-category {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-weight: 600;
+      align-self: flex-start;
+      flex-shrink: 0;
+    }
+    .cat-grammar  { background: rgba(124, 92, 252, 0.15); color: var(--accent); }
+    .cat-spelling { background: rgba(252, 92, 125, 0.15); color: var(--accent2); }
+    .cat-style    { background: rgba(247, 201, 72, 0.15);  color: var(--accent4); }
+
+    /* ============================================================
+       EMPTY / ERROR / SUCCESS STATES
+    ============================================================ */
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-muted);
+    }
+    .empty-state .big-icon { font-size: 3rem; margin-bottom: 12px; opacity: 0.4; }
+
+    .toast {
+      position: fixed;
+      bottom: 32px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 12px 24px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 500;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      z-index: 999;
+      transition: transform 0.4s cubic-bezier(.22,1,.36,1);
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+    .toast.success { border-color: var(--accent3); color: var(--accent3); }
+    .toast.error   { border-color: var(--error);   color: var(--error); }
+
+    /* ============================================================
+       FOOTER
+    ============================================================ */
+    footer {
+      text-align: center;
+      padding: 40px 0 0;
+      color: var(--text-muted);
+      font-size: 13px;
+      animation: fadeUp 1s 0.6s ease both;
+    }
+
+    /* ============================================================
+       KEYFRAMES
+    ============================================================ */
+    @keyframes fadeDown {
+      from { opacity: 0; transform: translateY(-24px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Background decorative orbs -->
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+
+  <!-- Toast notification (shown briefly for copy/errors) -->
+  <div class="toast" id="toast"></div>
+
+  <div class="wrapper">
+
+    <!-- ===== HEADER ===== -->
+    <header>
+      <div class="logo-badge">AI-Powered</div>
+      <h1>Grammar <span class="grad">Correction</span><br>Tool</h1>
+      <p class="subtitle">Paste your text below. We'll catch every mistake instantly.</p>
+    </header>
+
+    <!-- ===== MAIN EDITOR CARD ===== -->
+    <div class="main-card">
+
+      <!-- Window chrome dots -->
+      <div class="card-topbar">
+        <div class="dots">
+          <div class="dot dot-r"></div>
+          <div class="dot dot-y"></div>
+          <div class="dot dot-g"></div>
+        </div>
+        <span class="title-small">Writing Editor</span>
+        <span class="word-count-badge" id="wordCountBadge">0 words</span>
+      </div>
+
+      <!-- Two-column: Input | Output -->
+      <div class="editor-grid">
+
+        <!-- LEFT: Input -->
+        <div class="editor-pane">
+          <div class="pane-label">
+            <div class="dot-label" style="background:var(--accent2);"></div>
+            Your Text
+          </div>
+          <textarea
+            id="inputText"
+            placeholder="Start typing or paste your text here... For example: 'She dont likes to goes to the market yesterday.'"
+            spellcheck="false"
+          ></textarea>
+        </div>
+
+        <!-- RIGHT: Output -->
+        <div class="editor-pane">
+          <div class="pane-label">
+            <div class="dot-label" style="background:var(--accent3);"></div>
+            Corrected Output
+          </div>
+          <div id="outputPane">
+            Your corrected text will appear here after you click <strong>Check Grammar</strong>…
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Action buttons -->
+      <div class="action-row">
+        <button class="btn btn-primary" id="checkBtn" onclick="checkGrammar()">
+          <div class="spinner" id="spinner"></div>
+          <span id="btnText">✦ Check Grammar</span>
+        </button>
+        <button class="btn btn-copy" id="copyBtn" onclick="copyOutput()" style="display:none;">
+          ⎘ Copy Corrected
+        </button>
+        <button class="btn btn-ghost" onclick="clearAll()">
+          ↺ Clear
+        </button>
+        <button class="btn btn-ghost" onclick="loadSample()">
+          ⚡ Load Sample
+        </button>
+      </div>
+
+    </div>
+
+    <!-- ===== STATS SECTION (hidden until results arrive) ===== -->
+    <div class="stats-section" id="statsSection" style="display:none;">
+      <div class="stats-grid">
+
+        <!-- Score ring -->
+        <div class="stat-card score-card">
+          <div class="score-ring">
+            <svg viewBox="0 0 56 56" width="64" height="64">
+              <circle class="ring-bg" cx="28" cy="28" r="26" fill="none" stroke-width="4"/>
+              <circle class="ring-fill" id="ringFill" cx="28" cy="28" r="26" fill="none" stroke-width="4"/>
+            </svg>
+            <div class="score-number" id="scoreNumber">-</div>
+          </div>
+          <div>
+            <div class="stat-label">Writing Score</div>
+            <div id="scoreLabel" style="font-size:12px; color:var(--text-muted);">out of 100</div>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-label">Total Issues</div>
+          <div class="stat-value purple" id="statTotal">0</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-label">Grammar Errors</div>
+          <div class="stat-value pink" id="statGrammar">0</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-label">Spelling Errors</div>
+          <div class="stat-value teal" id="statSpelling">0</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-label">Word Count</div>
+          <div class="stat-value yellow" id="statWords">0</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ===== ISSUES LIST ===== -->
+    <div class="issues-section" id="issuesSection" style="display:none;">
+      <div class="section-title">
+        Issues Found
+        <span class="count-badge" id="issueCountBadge">0</span>
+      </div>
+      <div id="issuesList"></div>
+    </div>
+
+    <footer>
+      Built with ❤️ using <strong>Python Flask</strong> + <strong>LanguageTool</strong>
+    </footer>
+
+  </div>
+
+  <!-- ============================================================
+       JAVASCRIPT — handles all user interaction
+  ============================================================ -->
+  <script>
+    // Keep track of corrected text globally so we can copy it
+    let correctedText = '';
+
+    // --- WORD COUNT: updates live as user types ---
+    document.getElementById('inputText').addEventListener('input', function () {
+      const words = this.value.trim().split(/\s+/).filter(w => w.length > 0).length;
+      document.getElementById('wordCountBadge').textContent = words + ' words';
+    });
+
+    // --- MAIN FUNCTION: sends text to Flask and gets results ---
+    async function checkGrammar() {
+      const text = document.getElementById('inputText').value.trim();
+
+      // Guard: don't send empty text
+      if (!text) {
+        showToast('Please type or paste some text first.', 'error');
+        return;
+      }
+
+      // Show loading state
+      setLoading(true);
+
+      try {
+        // POST request to our Flask /check endpoint
+        const response = await fetch('/check', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: text })
+        });
+
+        const data = await response.json();
+
+        // If server returned an error
+        if (!response.ok) {
+          showToast(data.error || 'Something went wrong.', 'error');
+          setLoading(false);
+          return;
+        }
+
+        // Everything went well — display results
+        displayResults(data);
+
+      } catch (err) {
+        showToast('Cannot connect to server. Is Flask running?', 'error');
+      }
+
+      setLoading(false);
+    }
+
+    // --- DISPLAY RESULTS ---
+    function displayResults(data) {
+      correctedText = data.corrected;
+
+      // Update output pane
+      const outputPane = document.getElementById('outputPane');
+      outputPane.classList.add('has-content');
+      outputPane.innerHTML = highlightChanges(data.original, data.corrected);
+
+      // Show copy button
+      document.getElementById('copyBtn').style.display = 'inline-flex';
+
+      // Update stats
+      const s = data.stats;
+      document.getElementById('statTotal').textContent    = s.total_errors;
+      document.getElementById('statGrammar').textContent  = s.grammar_errors;
+      document.getElementById('statSpelling').textContent = s.spelling_errors;
+      document.getElementById('statWords').textContent    = s.word_count;
+      document.getElementById('scoreNumber').textContent  = s.score;
+      document.getElementById('statsSection').style.display = 'block';
+
+      // Animate score ring
+      const circumference = 163; // 2 * π * 26
+      const offset = circumference - (s.score / 100) * circumference;
+      document.getElementById('ringFill').style.strokeDashoffset = offset;
+
+      // Show issues
+      renderIssues(data.issues);
+
+      // Scroll smoothly to stats
+      document.getElementById('statsSection').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    // --- RENDER ISSUES LIST ---
+    function renderIssues(issues) {
+      const section = document.getElementById('issuesSection');
+      const list    = document.getElementById('issuesList');
+
+      document.getElementById('issueCountBadge').textContent = issues.length;
+
+      if (issues.length === 0) {
+        section.style.display = 'block';
+        list.innerHTML = `
+          <div class="empty-state">
+            <div class="big-icon">🎉</div>
+            <p>No issues found! Your text is perfect.</p>
+          </div>`;
+        return;
+      }
+
+      section.style.display = 'block';
+      list.innerHTML = '';
+
+      issues.forEach((issue, i) => {
+        // Determine icon and category styling
+        const cat = issue.category.toUpperCase();
+        let icon, iconClass, catClass, catLabel;
+
+        if (cat.includes('GRAMMAR')) {
+          icon = '⚙'; iconClass = 'icon-grammar'; catClass = 'cat-grammar'; catLabel = 'Grammar';
+        } else if (cat.includes('TYPO') || cat.includes('SPELL')) {
+          icon = '✎'; iconClass = 'icon-spelling'; catClass = 'cat-spelling'; catLabel = 'Spelling';
+        } else {
+          icon = '✦'; iconClass = 'icon-style'; catClass = 'cat-style'; catLabel = 'Style';
+        }
+
+        // Build suggestion pills HTML
+        const pillsHtml = issue.replacements.length
+          ? issue.replacements.slice(0, 4).map(r =>
+              `<span class="suggestion-pill" title="Click to see suggestion">${r}</span>`
+            ).join('')
+          : `<span style="font-size:12px; color:var(--text-muted);">No suggestions</span>`;
+
+        // Create the issue card HTML
+        const div = document.createElement('div');
+        div.className = 'issue-item';
+        div.style.animationDelay = (i * 0.06) + 's';
+        div.innerHTML = `
+          <div class="issue-icon ${iconClass}">${icon}</div>
+          <div class="issue-body">
+            <div class="issue-message">${escapeHtml(issue.message)}</div>
+            <div class="issue-context">${escapeHtml(issue.context)}</div>
+            <div class="suggestions-row">${pillsHtml}</div>
+          </div>
+          <span class="issue-category ${catClass}">${catLabel}</span>
+        `;
+        list.appendChild(div);
+      });
+    }
+
+    // --- HIGHLIGHT CHANGES between original and corrected ---
+    function highlightChanges(original, corrected) {
+      if (original === corrected) return escapeHtml(corrected);
+      // Simple word-diff: highlight words that changed
+      const origWords = original.split(' ');
+      const corrWords = corrected.split(' ');
+      return corrWords.map((word, i) => {
+        if (origWords[i] !== word) {
+          return `<span class="corrected-highlight">${escapeHtml(word)}</span>`;
+        }
+        return escapeHtml(word);
+      }).join(' ');
+    }
+
+    // --- COPY OUTPUT TO CLIPBOARD ---
+    async function copyOutput() {
+      if (!correctedText) return;
+      try {
+        await navigator.clipboard.writeText(correctedText);
+        showToast('Corrected text copied! ✓', 'success');
+      } catch {
+        showToast('Copy failed. Please copy manually.', 'error');
+      }
+    }
+
+    // --- CLEAR EVERYTHING ---
+    function clearAll() {
+      document.getElementById('inputText').value = '';
+      document.getElementById('outputPane').innerHTML = 'Your corrected text will appear here after you click <strong>Check Grammar</strong>…';
+      document.getElementById('outputPane').classList.remove('has-content');
+      document.getElementById('statsSection').style.display = 'none';
+      document.getElementById('issuesSection').style.display = 'none';
+      document.getElementById('copyBtn').style.display = 'none';
+      document.getElementById('wordCountBadge').textContent = '0 words';
+      correctedText = '';
+    }
+
+    // --- LOAD A SAMPLE TEXT ---
+    function loadSample() {
+      const sample = "She dont likes to goes to the market yesterday. Their was alot of peoples in the store. He buyed two apple's and a oranges. The weather were very cold and we was wearing our coats. I has been working at this company since three years.";
+      document.getElementById('inputText').value = sample;
+      const words = sample.trim().split(/\s+/).length;
+      document.getElementById('wordCountBadge').textContent = words + ' words';
+      showToast('Sample text loaded!', 'success');
+    }
+
+    // --- LOADING STATE helper ---
+    function setLoading(on) {
+      const btn     = document.getElementById('checkBtn');
+      const spinner = document.getElementById('spinner');
+      const text    = document.getElementById('btnText');
+      btn.disabled         = on;
+      spinner.style.display = on ? 'block' : 'none';
+      text.textContent     = on ? 'Checking…' : '✦ Check Grammar';
+    }
+
+    // --- TOAST NOTIFICATION ---
+    function showToast(message, type = '') {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.className = 'toast ' + type;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 3000);
+    }
+
+    // --- ESCAPE HTML to prevent XSS ---
+    function escapeHtml(text) {
+      const d = document.createElement('div');
+      d.appendChild(document.createTextNode(text));
+      return d.innerHTML;
+    }
+
+    // --- KEYBOARD SHORTCUT: Ctrl+Enter to check ---
+    document.getElementById('inputText').addEventListener('keydown', function(e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        checkGrammar();
+      }
+    });
+  </script>
+
+</body>
+</html>
